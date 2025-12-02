@@ -2,6 +2,11 @@
 
 Multi-tenant SaaS application with separate admin and vendor portals.
 
+## Live Deployments
+
+- **Admin Portal**: https://multitenant-admin-lmnb5urjra-uc.a.run.app/
+- **Vendor Portal**: https://multitenant-vendor-lmnb5urjra-uc.a.run.app/
+
 ## Architecture
 
 - **Admin App** (port 3000): Multi-tenant dashboard with tenant selector
