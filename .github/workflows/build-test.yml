@@ -1,0 +1,107 @@
+name: Build and Test
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  lint-and-build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.14.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run lint
+        run: pnpm lint
+
+      - name: Build all apps
+        run: pnpm build
+        env:
+          NODE_ENV: production
+          VENDOR_TENANT_ID: test-tenant-id
+          UPSTREAM_API_URL: https://api.example.com
+
+      - name: Check build outputs
+        run: |
+          echo "Checking admin build..."
+          ls -la apps/admin/.next/standalone || echo "Admin standalone not found"
+          
+          echo "Checking vendor build..."
+          ls -la apps/vendor/.next/standalone || echo "Vendor standalone not found"
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: lint-and-build
+    strategy:
+      matrix:
+        app: [admin, vendor]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.14.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build ${{ matrix.app }} app
+        run: pnpm build --filter ${{ matrix.app }}
+        env:
+          NODE_ENV: production
+          VENDOR_TENANT_ID: test-tenant-id
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -f Dockerfile.${{ matrix.app }} \
+            -t multitenant-${{ matrix.app }}:test \
+            .
+
+      - name: Test Docker image
+        run: |
+          docker run -d \
+            --name test-${{ matrix.app }} \
+            -e NODE_ENV=production \
+            -e UPSTREAM_API_URL=https://api.example.com \
+            ${{ matrix.app == 'vendor' && '-e VENDOR_TENANT_ID=test-tenant-id' || '' }} \
+            -p ${{ matrix.app == 'admin' && '3000:3000' || '3001:3001' }} \
+            multitenant-${{ matrix.app }}:test
+          
+          # Wait for container to start
+          sleep 5
+          
+          # Check if container is running
+          docker ps | grep test-${{ matrix.app }}
+          
+          # Stop container
+          docker stop test-${{ matrix.app }}
+          docker rm test-${{ matrix.app }}

@@ -1,0 +1,116 @@
+name: Deploy Vendor to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/vendor/**'
+      - 'packages/**'
+      - '.github/workflows/deploy-vendor.yml'
+      - 'Dockerfile.vendor'
+      - 'pnpm-lock.yaml'
+  workflow_dispatch:
+    inputs:
+      vendor_tenant_id:
+        description: 'Vendor Tenant ID (overrides secret if provided)'
+        required: false
+        type: string
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: ${{ secrets.GCP_REGION || 'us-central1' }}
+  SERVICE_NAME: multitenant-vendor
+  IMAGE_NAME: gcr.io/${{ secrets.GCP_PROJECT_ID }}/multitenant-vendor
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.14.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build vendor app
+        run: pnpm build --filter vendor
+        env:
+          NODE_ENV: production
+          VENDOR_TENANT_ID: ${{ github.event.inputs.vendor_tenant_id || secrets.VENDOR_TENANT_ID }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -f Dockerfile.vendor \
+            -t ${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            -t ${{ env.IMAGE_NAME }}:latest \
+            .
+
+      - name: Push Docker image to GCR
+        run: |
+          docker push ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          docker push ${{ env.IMAGE_NAME }}:latest
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image ${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            --platform managed \
+            --region ${{ env.GCP_REGION }} \
+            --allow-unauthenticated \
+            --port 3001 \
+            --memory 512Mi \
+            --cpu 1 \
+            --min-instances 0 \
+            --max-instances 10 \
+            --set-env-vars NODE_ENV=production \
+            --set-env-vars VENDOR_TENANT_ID=${{ github.event.inputs.vendor_tenant_id || secrets.VENDOR_TENANT_ID }} \
+            --set-env-vars UPSTREAM_API_URL=${{ secrets.UPSTREAM_API_URL }} \
+            --timeout 300
+
+      - name: Get Service URL
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --platform managed \
+            --region ${{ env.GCP_REGION }} \
+            --format 'value(status.url)')
+          echo "Vendor app deployed to: $SERVICE_URL"
+          echo "SERVICE_URL=$SERVICE_URL" >> $GITHUB_OUTPUT
+        id: get-url
+
+      - name: Deployment Summary
+        run: |
+          echo "### 🚀 Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Service:** ${{ env.SERVICE_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** ${{ env.IMAGE_NAME }}:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Region:** ${{ env.GCP_REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Tenant ID:** ${{ github.event.inputs.vendor_tenant_id || secrets.VENDOR_TENANT_ID }}" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** ${{ steps.get-url.outputs.SERVICE_URL }}" >> $GITHUB_STEP_SUMMARY

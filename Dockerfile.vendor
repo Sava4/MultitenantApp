@@ -1,0 +1,34 @@
+FROM node:22-alpine AS base
+
+# Install dependencies only when needed
+FROM base AS deps
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+# Copy standalone output
+COPY apps/vendor/.next/standalone ./
+COPY apps/vendor/.next/static ./apps/vendor/.next/static
+COPY apps/vendor/public ./apps/vendor/public
+
+# Production image
+FROM base AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=3001
+ENV HOSTNAME="0.0.0.0"
+
+# Required for vendor app
+ENV VENDOR_TENANT_ID=""
+ENV UPSTREAM_API_URL=""
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+COPY --from=deps --chown=nextjs:nodejs /app ./
+
+USER nextjs
+
+EXPOSE 3001
+
+CMD ["node", "apps/vendor/server.js"]

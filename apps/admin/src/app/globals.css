@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 140 30% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 140 30% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 140 30% 10%;
+
+    /* Modern Green theme for Admin */
+    --primary: 142 71% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 140 20% 96%;
+    --secondary-foreground: 140 30% 10%;
+
+    --muted: 140 20% 96%;
+    --muted-foreground: 140 10% 45%;
+
+    --accent: 142 70% 95%;
+    --accent-foreground: 142 71% 35%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 140 20% 90%;
+    --input: 140 20% 90%;
+    --ring: 142 71% 45%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 140 30% 5%;
+    --foreground: 140 10% 95%;
+
+    --card: 140 30% 8%;
+    --card-foreground: 140 10% 95%;
+
+    --popover: 140 30% 8%;
+    --popover-foreground: 140 10% 95%;
+
+    /* Modern Green theme for Admin (dark mode) */
+    --primary: 142 71% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 140 20% 15%;
+    --secondary-foreground: 140 10% 95%;
+
+    --muted: 140 20% 15%;
+    --muted-foreground: 140 10% 60%;
+
+    --accent: 142 70% 15%;
+    --accent-foreground: 142 71% 60%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 140 20% 18%;
+    --input: 140 20% 18%;
+    --ring: 142 71% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
