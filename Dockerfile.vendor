@@ -14,13 +14,17 @@ COPY apps/vendor/public ./apps/vendor/public
 FROM base AS runner
 WORKDIR /app
 
+# Accept build arguments
+ARG VENDOR_TENANT_ID
+ARG UPSTREAM_API_URL
+
 ENV NODE_ENV=production
 ENV PORT=3001
 ENV HOSTNAME="0.0.0.0"
 
-# Required for vendor app
-ENV VENDOR_TENANT_ID=""
-ENV UPSTREAM_API_URL=""
+# Required for vendor app - set from build args
+ENV VENDOR_TENANT_ID=${VENDOR_TENANT_ID}
+ENV UPSTREAM_API_URL=${UPSTREAM_API_URL:-"https://4y6vut7106.execute-api.us-east-1.amazonaws.com/v1/pipelines"}
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs

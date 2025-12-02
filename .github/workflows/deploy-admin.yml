@@ -15,8 +15,9 @@ on:
 env:
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   GCP_REGION: ${{ secrets.GCP_REGION || 'us-central1' }}
+  ARTIFACT_REGISTRY_REPO: ${{ secrets.ARTIFACT_REGISTRY_REPO || 'multitenant-app' }}
   SERVICE_NAME: multitenant-admin
-  IMAGE_NAME: gcr.io/${{ secrets.GCP_PROJECT_ID }}/multitenant-admin
+  IMAGE_NAME: ${{ secrets.GCP_REGION || 'us-central1' }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.ARTIFACT_REGISTRY_REPO || 'multitenant-app' }}/multitenant-admin
 
 jobs:
   deploy:
@@ -56,8 +57,8 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Configure Docker for GCR
-        run: gcloud auth configure-docker
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev
 
       - name: Build Docker image
         run: |
@@ -67,7 +68,7 @@ jobs:
             -t ${{ env.IMAGE_NAME }}:latest \
             .
 
-      - name: Push Docker image to GCR
+      - name: Push Docker image to Artifact Registry
         run: |
           docker push ${{ env.IMAGE_NAME }}:${{ github.sha }}
           docker push ${{ env.IMAGE_NAME }}:latest
@@ -85,7 +86,7 @@ jobs:
             --min-instances 0 \
             --max-instances 10 \
             --set-env-vars NODE_ENV=production \
-            --set-env-vars UPSTREAM_API_URL=${{ secrets.UPSTREAM_API_URL }} \
+            --set-env-vars UPSTREAM_API_URL=${{ vars.UPSTREAM_API_URL }} \
             --timeout 300
 
       - name: Get Service URL
