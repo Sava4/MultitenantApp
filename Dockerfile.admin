@@ -8,7 +8,6 @@ WORKDIR /app
 # Copy standalone output
 COPY apps/admin/.next/standalone ./
 COPY apps/admin/.next/static ./apps/admin/.next/static
-COPY apps/admin/public ./apps/admin/public
 
 # Production image
 FROM base AS runner
